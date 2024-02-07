@@ -4,11 +4,15 @@ import { useSearchParams } from "react-router-dom";
 
 const URL = "http://localhost:3000";
 
-const Room = () => {
+interface RoomProps {
+  name: string;
+  localAudioTrack: MediaStreamTrack | null;
+  localVideoTrack: MediaStreamTrack | null;
+}
+
+const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [lobby, setLobby] = useState(true);
-  let [searchParams, setSearchParams] = useSearchParams();
-  let name = searchParams.get("name");
 
   useEffect(() => {
     const socket = io(URL);
@@ -25,10 +29,10 @@ const Room = () => {
     socket.on("offer", ({ roomId, offer }) => {
       setLobby(false);
       alert("Send answer please");
-      /* socket.emit("answer", {
+      socket.emit("answer", {
         sdp: "",
         roomId,
-      }); */
+      });
     });
 
     socket.on("answer", ({ roomId, answer }) => {
