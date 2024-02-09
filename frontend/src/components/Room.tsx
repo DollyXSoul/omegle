@@ -22,8 +22,18 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
   const [remoteVideoTrack, setRemoteVideoTrack] =
     useState<null | MediaStreamTrack>(null);
 
-  const localVideoRef = useRef<null | HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<null | HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (localVideoRef.current) {
+      if (localVideoTrack) {
+        localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
+        localVideoRef.current.play();
+      }
+    }
+  }, [localVideoRef]);
 
   useEffect(() => {
     const socket = io(URL);
@@ -32,14 +42,6 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
       console.log("Sending offer 1");
       setLobby(false);
       const pc = new RTCPeerConnection();
-
-      if (localVideoTrack) {
-        pc.addTrack(localVideoTrack);
-      }
-      if (localAudioTrack) {
-        pc.addTrack(localAudioTrack);
-      }
-      setSendingPc(pc);
 
       pc.onicecandidate = async (e) => {
         console.log("generating ice candidates locally");
@@ -56,12 +58,23 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
 
         const sdp = await pc.createOffer();
 
-        pc.setLocalDescription(sdp);
+        await pc.setLocalDescription(sdp);
         socket.emit("offer", {
           sdp,
           roomId,
         });
       };
+
+      setSendingPc(pc);
+
+      if (localVideoTrack) {
+        console.log("Added video track");
+        pc.addTrack(localVideoTrack);
+      }
+      if (localAudioTrack) {
+        console.log("Added audio track");
+        pc.addTrack(localAudioTrack);
+      }
     });
 
     socket.on("offer", async ({ roomId, sdp: remoteSdp }) => {
@@ -69,21 +82,6 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
       setLobby(false);
 
       const pc = new RTCPeerConnection();
-
-      pc.setRemoteDescription(remoteSdp);
-
-      const sdp = await pc.createAnswer();
-      pc.setLocalDescription(sdp);
-
-      const stream = new MediaStream();
-
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-      }
-
-      setRemoteMediaStream(stream);
-
-      setRecievingPc(pc);
 
       pc.onicecandidate = async (e) => {
         console.log("generating ice candidates on the reciever side");
@@ -97,22 +95,39 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
         }
       };
 
-      pc.ontrack = (e: RTCTrackEvent) => {
+      pc.ontrack = function (e: RTCTrackEvent) {
         console.log("Inside ontrack");
 
         const { track } = e;
-
+        console.log(e.streams);
         setRemoteMediaStream(e.streams[0]);
 
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteMediaStream;
+          remoteVideoRef.current.srcObject = e.streams[0];
+          remoteVideoRef.current.srcObject.addTrack(track);
         }
 
         // @ts-ignore
-        // remoteVideoRef.current.srcObject.addTrack(track);
+        // r
         //@ts-ignore
         remoteVideoRef.current.play();
       };
+
+      await pc.setRemoteDescription(remoteSdp);
+
+      const sdp = await pc.createAnswer();
+      await pc.setLocalDescription(sdp);
+
+      //Empty remote stream
+      const stream = new MediaStream();
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+
+      setRemoteMediaStream(stream);
+
+      setRecievingPc(pc);
+
       socket.emit("answer", {
         sdp,
         roomId,
@@ -157,15 +172,6 @@ const Room = ({ name, localAudioTrack, localVideoTrack }: RoomProps) => {
 
     setSocket(socket);
   }, [name]);
-
-  useEffect(() => {
-    if (localVideoRef.current) {
-      if (localVideoTrack) {
-        localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
-        localVideoRef.current.play();
-      }
-    }
-  }, [localVideoRef]);
 
   if (lobby) return <div>Waiting for someone to join with you</div>;
 
