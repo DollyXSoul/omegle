@@ -28,11 +28,13 @@ export class UserManager {
   }
 
   removeUser(socketId: string) {
+    console.log("User disconnected");
     this.users = this.users.filter((x) => x.socket.id !== socketId);
     this.queue = this.queue.filter((x) => x === socketId);
   }
 
   clearQueue() {
+    console.log("reached here in clear queue ");
     if (this.queue.length < 2) return;
 
     const id1 = this.queue.pop();

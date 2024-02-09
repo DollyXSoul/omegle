@@ -25,7 +25,7 @@ export class RoomManager {
       roomId,
     });
 
-    user2.socket.emit("send offer", {
+    user2.socket.emit("send-offer", {
       roomId,
     });
   }
@@ -38,8 +38,7 @@ export class RoomManager {
     const receivingUser =
       room.user1.socket.id === senderSocketId ? room.user2 : room.user1;
 
-    const user2 = this.rooms.get(roomId)?.user2;
-    user2?.socket.emit("offer", {
+    receivingUser.socket.emit("offer", {
       sdp,
       roomId,
     });
@@ -52,8 +51,7 @@ export class RoomManager {
     const receivingUser =
       room.user1.socket.id === senderSocketId ? room.user2 : room.user1;
 
-    const user1 = this.rooms.get(roomId)?.user1;
-    user1?.socket.emit("answer", {
+    receivingUser?.socket.emit("answer", {
       sdp,
       roomId,
     });
